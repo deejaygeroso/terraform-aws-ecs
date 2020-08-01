@@ -1,0 +1,6 @@
+# Only add terraform.tfvars if it contains credentials that needs to be hidden
+# */terraform.tfvars
+*/terraform.tfstate
+*/terraform.tfstate.backup
+*/.terraform
+*/**/mykey*
