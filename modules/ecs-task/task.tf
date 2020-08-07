@@ -1,23 +1,43 @@
-#
-# ECR 
-#
+# ---------------------------------------------------------
+# Scheduling
+# ---------------------------------------------------------
+resource "aws_cloudwatch_event_target" "schedule" {
+  arn       = var.CLUSTER_ARN
+  role_arn  = var.EVENTS_ROLE_ARN
+  rule      = aws_cloudwatch_event_rule.schedule.name
+  target_id = "Run${replace(var.APPLICATION_NAME, "-", "")}"
 
-resource "aws_ecr_repository" "ecs-task" {
-  name = "${var.ECR_PREFIX}${var.APPLICATION_NAME}"
+  ecs_target {
+    task_count          = 1
+    task_definition_arn = aws_ecs_task_definition.ecs-task-taskdef.arn
+  }
+}
+resource "aws_cloudwatch_event_rule" "schedule" {
+  description         = "runs ecs task"
+  name                = "Run${replace(var.APPLICATION_NAME, "-", "")}"
+  schedule_expression = var.SCHEDULE
 }
 
-#
-# get latest active revision
-#
+# ---------------------------------------------------------
+# Get Latest Active Revision
+# ---------------------------------------------------------
 data "aws_ecs_task_definition" "ecs-task" {
-  task_definition = aws_ecs_task_definition.ecs-task-taskdef.family
   depends_on      = [aws_ecs_task_definition.ecs-task-taskdef]
+  task_definition = aws_ecs_task_definition.ecs-task-taskdef.family
 }
 
-#
-# task definition template
-#
+# ---------------------------------------------------------
+# Task Definition
+# ---------------------------------------------------------
+resource "aws_ecs_task_definition" "ecs-task-taskdef" {
+  container_definitions = data.template_file.ecs-task.rendered
+  family                = var.APPLICATION_NAME
+  task_role_arn         = var.TASK_ROLE_ARN
+}
 
+# ---------------------------------------------------------
+# Task Definition Template
+# ---------------------------------------------------------
 data "template_file" "ecs-task" {
   template = file(var.TASK_DEF_TEMPLATE)
 
@@ -32,32 +52,9 @@ data "template_file" "ecs-task" {
   }
 }
 
-#
-# task definition
-#
-
-resource "aws_ecs_task_definition" "ecs-task-taskdef" {
-  family                = var.APPLICATION_NAME
-  container_definitions = data.template_file.ecs-task.rendered
-  task_role_arn         = var.TASK_ROLE_ARN
+# ---------------------------------------------------------
+# ECR
+# ---------------------------------------------------------
+resource "aws_ecr_repository" "ecs-task" {
+  name = "${var.ECR_PREFIX}${var.APPLICATION_NAME}"
 }
-
-# scheduling
-resource "aws_cloudwatch_event_rule" "schedule" {
-  name                = "Run${replace(var.APPLICATION_NAME, "-", "")}"
-  description         = "runs ecs task"
-  schedule_expression = var.SCHEDULE
-}
-
-resource "aws_cloudwatch_event_target" "schedule" {
-  rule      = aws_cloudwatch_event_rule.schedule.name
-  target_id = "Run${replace(var.APPLICATION_NAME, "-", "")}"
-  arn       = var.CLUSTER_ARN
-  role_arn  = var.EVENTS_ROLE_ARN
-
-  ecs_target {
-    task_count          = 1
-    task_definition_arn = aws_ecs_task_definition.ecs-task-taskdef.arn
-  }
-}
-
