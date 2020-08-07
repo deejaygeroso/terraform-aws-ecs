@@ -13,6 +13,7 @@ output "zone_id" {
 output "http_listener_arn" {
   value = aws_alb_listener.alb-http.arn
 }
+
 output "https_listener_arn" {
   value = aws_alb_listener.alb-https.arn
 }
