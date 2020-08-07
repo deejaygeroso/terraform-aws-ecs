@@ -1,6 +1,6 @@
-#
-# target
-#
+# ---------------------------------------------------------
+# ALB Target Group
+# ---------------------------------------------------------
 resource "aws_alb_target_group" "ecs-service" {
   name = "${var.APPLICATION_NAME}-${substr(
     md5(
@@ -14,18 +14,18 @@ resource "aws_alb_target_group" "ecs-service" {
     0,
     12,
   )}"
+
+  deregistration_delay = var.DEREGISTRATION_DELAY
   port                 = var.APPLICATION_PORT
   protocol             = "HTTP"
   vpc_id               = var.VPC_ID
-  deregistration_delay = var.DEREGISTRATION_DELAY
 
   health_check {
-    healthy_threshold   = 3
-    unhealthy_threshold = 3
-    protocol            = "HTTP"
-    path                = "/"
     interval            = 60
+    healthy_threshold   = 3
     matcher             = var.HEALTHCHECK_MATCHER
+    path                = "/"
+    protocol            = "HTTP"
+    unhealthy_threshold = 3
   }
 }
-

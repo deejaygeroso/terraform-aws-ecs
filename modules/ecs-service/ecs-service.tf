@@ -1,23 +1,60 @@
-#
-# ECR 
-#
 
-resource "aws_ecr_repository" "ecs-service" {
-  name = var.APPLICATION_NAME
+
+# ---------------------------------------------------------
+# ECS Service
+# ---------------------------------------------------------
+resource "aws_ecs_service" "ecs-service" {
+  name                               = var.APPLICATION_NAME
+  cluster                            = var.CLUSTER_ARN
+  iam_role                           = var.SERVICE_ROLE_ARN
+  depends_on                         = [null_resource.alb_exists]
+  deployment_maximum_percent         = var.DEPLOYMENT_MAXIMUM_PERCENT
+  deployment_minimum_healthy_percent = var.DEPLOYMENT_MINIMUM_HEALTHY_PERCENT
+  desired_count                      = var.DESIRED_COUNT
+
+  task_definition = "${aws_ecs_task_definition.ecs-service-taskdef.family}:${max(
+    aws_ecs_task_definition.ecs-service-taskdef.revision,
+    data.aws_ecs_task_definition.ecs-service.revision,
+  )}"
+
+  load_balancer {
+    target_group_arn = aws_alb_target_group.ecs-service.id
+    container_name   = var.APPLICATION_NAME
+    container_port   = var.APPLICATION_PORT
+  }
 }
 
-#
-# get latest active revision
-#
+# ---------------------------------------------------------
+# Depends On
+# ---------------------------------------------------------
+resource "null_resource" "alb_exists" {
+  triggers = {
+    alb_name = var.ALB_ARN
+  }
+}
+
+# ---------------------------------------------------------
+# Get Latest Active Revision
+# ---------------------------------------------------------
 data "aws_ecs_task_definition" "ecs-service" {
   task_definition = aws_ecs_task_definition.ecs-service-taskdef.family
   depends_on      = [aws_ecs_task_definition.ecs-service-taskdef]
 }
 
-#
-# task definition template
-#
 
+
+# ---------------------------------------------------------
+# Task Definition
+# ---------------------------------------------------------
+resource "aws_ecs_task_definition" "ecs-service-taskdef" {
+  family                = var.APPLICATION_NAME
+  container_definitions = data.template_file.ecs-service.rendered
+  task_role_arn         = var.TASK_ROLE_ARN
+}
+
+# ---------------------------------------------------------
+# Task Definition Template
+# ---------------------------------------------------------
 data "template_file" "ecs-service" {
   template = file("${path.module}/ecs-service.json")
 
@@ -33,44 +70,9 @@ data "template_file" "ecs-service" {
   }
 }
 
-#
-# task definition
-#
-
-resource "aws_ecs_task_definition" "ecs-service-taskdef" {
-  family                = var.APPLICATION_NAME
-  container_definitions = data.template_file.ecs-service.rendered
-  task_role_arn         = var.TASK_ROLE_ARN
+# ---------------------------------------------------------
+# ECR
+# ---------------------------------------------------------
+resource "aws_ecr_repository" "ecs-service" {
+  name = var.APPLICATION_NAME
 }
-
-#
-# ecs service
-#
-
-resource "aws_ecs_service" "ecs-service" {
-  name    = var.APPLICATION_NAME
-  cluster = var.CLUSTER_ARN
-  task_definition = "${aws_ecs_task_definition.ecs-service-taskdef.family}:${max(
-    aws_ecs_task_definition.ecs-service-taskdef.revision,
-    data.aws_ecs_task_definition.ecs-service.revision,
-  )}"
-  iam_role                           = var.SERVICE_ROLE_ARN
-  desired_count                      = var.DESIRED_COUNT
-  deployment_minimum_healthy_percent = var.DEPLOYMENT_MINIMUM_HEALTHY_PERCENT
-  deployment_maximum_percent         = var.DEPLOYMENT_MAXIMUM_PERCENT
-
-  load_balancer {
-    target_group_arn = aws_alb_target_group.ecs-service.id
-    container_name   = var.APPLICATION_NAME
-    container_port   = var.APPLICATION_PORT
-  }
-
-  depends_on = [null_resource.alb_exists]
-}
-
-resource "null_resource" "alb_exists" {
-  triggers = {
-    alb_name = var.ALB_ARN
-  }
-}
-
