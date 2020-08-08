@@ -32,10 +32,10 @@ module "myproject-alb" {
 module "myproject-service" {
   source = "../modules/ecs-service"
 
-  ALB_ARN             = module.myproject-alb.alb_arn
   APPLICATION_NAME    = "myproject-service"
   APPLICATION_PORT    = "80"
   APPLICATION_VERSION = "latest"
+  ALB_ARN             = module.myproject-alb.alb_arn
   AWS_REGION          = var.AWS_REGION
   CLUSTER_ARN         = module.myproject-ecs.cluster_arn
   CPU_RESERVATION     = "256"
